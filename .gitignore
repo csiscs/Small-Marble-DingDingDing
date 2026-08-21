@@ -1,0 +1,19 @@
+# 忽略自动生成的缓存
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+
+# 忽略日志与系统文件
+*.log
+.DS_Store
+Library/Artifacts/01/0113b387870a643f5cc3096d534fda54
+.utmp/RelWithDebInfo/2p66842j/arm64-v8a/.cmake/api/v1/query/client-agp/cmakeFiles-v1
+.utmp/RelWithDebInfo/2p66842j/arm64-v8a/.cmake/api/v1/query/client-agp/codemodel-v2
+.utmp/RelWithDebInfo/2p66842j/arm64-v8a/.cmake/api/v1/reply/cache-v2-15ee494b01e457538bf3.json
+.utmp/RelWithDebInfo/2p66842j/arm64-v8a/.cmake/api/v1/reply/cmakeFiles-v1-f5ca3e3d8653e5d8de6d.json
+.utmp/RelWithDebInfo/2p66842j/arm64-v8a/.cmake/api/v1/reply/codemodel-v2-fa870a911e72c4fc0dbb.json
+.utmp/RelWithDebInfo/2p66842j/arm64-v8a/.cmake/api/v1/reply/directory-.-RelWithDebInfo-d0094a50bb2071803777.json
+.utmp/RelWithDebInfo/2p66842j/arm64-v8a/.cmake/api/v1/reply/directory-GameActivity-RelWithDebInfo-3edf2ef9e25ca0503118.json
+*.json

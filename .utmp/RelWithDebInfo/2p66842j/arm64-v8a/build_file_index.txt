@@ -1,0 +1,2 @@
+C:\Unity\Project-All\Unity Project-All\Small Ball TanTanTan\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\CMakeLists.txt
+C:\Unity\Project-All\Unity Project-All\Small Ball TanTanTan\Library\Bee\Android\Prj\IL2CPP\Gradle\unityLibrary\src\main\cpp\GameActivity\CMakeLists.txt
