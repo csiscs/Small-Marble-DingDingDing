@@ -14,26 +14,18 @@ public class MarblePlayfieldBuilder : MonoBehaviour
     [SerializeField] private float wowHoleRadius = 76f;
     [SerializeField] private Vector2 wowHoleOffset = new Vector2(0f, 28f);
     [SerializeField] private bool showPegVisuals = true;
+    [SerializeField] private float largePegRadius = 12f;
+    [SerializeField] private Sprite smallPegSprite;
+    [SerializeField] private Sprite largePegSprite;
 
     [ContextMenu("Rebuild Colliders")]
     public void Rebuild()
     {
-        ClearGenerated();
-
-        RectTransform playfield = (RectTransform)transform;
-        float width = playfield.rect.width;
-        float height = playfield.rect.height;
-        if (width < 10f || height < 10f)
+        if (!TryGetPlayfieldBounds(out float left, out float right, out float bottom, out float top,
+                out float dividerX, out float slotTop, out float mainLeft, out float mainRight))
             return;
 
-        float left = -width * 0.5f;
-        float right = width * 0.5f;
-        float bottom = -height * 0.5f;
-        float top = height * 0.5f;
-        float dividerX = right - launchChannelWidth;
-        float slotTop = bottom + slotHeight;
-        float mainLeft = left + 18f;
-        float mainRight = dividerX - 16f;
+        ClearGenerated();
 
         Transform pegsRoot = CreateRoot("Pegs");
         Transform wallsRoot = CreateRoot("Walls");
@@ -44,10 +36,56 @@ public class MarblePlayfieldBuilder : MonoBehaviour
         BuildPegs(pegsRoot, mainLeft, mainRight, slotTop, top, dividerX);
     }
 
+    [ContextMenu("Rebuild Pegs")]
+    public void RebuildPegs()
+    {
+        if (!TryGetPlayfieldBounds(out _, out _, out _, out float top,
+                out float dividerX, out float slotTop, out float mainLeft, out float mainRight))
+            return;
+
+        Transform pegsRoot = transform.Find("Pegs");
+        if (pegsRoot == null)
+            pegsRoot = CreateRoot("Pegs");
+        else
+            ClearChildren(pegsRoot);
+
+        BuildPegs(pegsRoot, mainLeft, mainRight, slotTop, top, dividerX);
+    }
+
+    private bool TryGetPlayfieldBounds(
+        out float left, out float right, out float bottom, out float top,
+        out float dividerX, out float slotTop, out float mainLeft, out float mainRight)
+    {
+        RectTransform playfield = (RectTransform)transform;
+        float width = playfield.rect.width;
+        float height = playfield.rect.height;
+        if (width < 10f || height < 10f)
+        {
+            left = right = bottom = top = dividerX = slotTop = mainLeft = mainRight = 0f;
+            return false;
+        }
+
+        left = -width * 0.5f;
+        right = width * 0.5f;
+        bottom = -height * 0.5f;
+        top = height * 0.5f;
+        dividerX = right - launchChannelWidth;
+        slotTop = bottom + slotHeight;
+        mainLeft = left + 18f;
+        mainRight = dividerX - 16f;
+        return true;
+    }
+
     private void ClearGenerated()
     {
         for (int i = transform.childCount - 1; i >= 0; i--)
             DestroyImmediate(transform.GetChild(i).gameObject);
+    }
+
+    private static void ClearChildren(Transform root)
+    {
+        for (int i = root.childCount - 1; i >= 0; i--)
+            DestroyImmediate(root.GetChild(i).gameObject);
     }
 
     private Transform CreateRoot(string name)
@@ -115,76 +153,99 @@ public class MarblePlayfieldBuilder : MonoBehaviour
 
     private void BuildPegs(Transform root, float mainLeft, float mainRight, float slotTop, float top, float dividerX)
     {
-        float topRowY = top - 92f;
-        float bottomRowY = slotTop + 28f;
         var positions = new List<Vector2>();
+        var radii = new List<float>();
+        float cx = (mainLeft + mainRight) * 0.5f;
+        float topRowY = top - 108f;
+        Vector2 character = new Vector2(cx, slotTop + 78f);
 
-        int topCount = 8;
+        // 1. Top barrier: large screw-head pegs in a slight downward arc.
+        int topCount = 7;
         for (int i = 0; i < topCount; i++)
         {
-            float t = topCount == 1 ? 0.5f : i / (float)(topCount - 1);
-            float x = Mathf.Lerp(mainLeft + 24f, mainRight - 24f, t);
-            float y = topRowY - 16f * Mathf.Sin(Mathf.PI * t);
-            TryAddPeg(positions, new Vector2(x, y), dividerX);
+            float t = i / (float)(topCount - 1);
+            float x = Mathf.Lerp(mainLeft + 38f, mainRight - 38f, t);
+            float y = topRowY - 18f * Mathf.Sin(Mathf.PI * t);
+            TryAddPeg(positions, radii, new Vector2(x, y), dividerX, largePegRadius);
         }
 
-        int rows = 9;
+        // 2. Horizontal row under the title / 站 area.
+        AddPegRow(positions, radii, 8, topRowY - 66f, mainLeft + 42f, mainRight - 42f, dividerX, pegRadius);
+
+        // 3. Side funnel rails: diagonal lines that guide marbles inward.
+        int sideCount = 7;
+        for (int i = 0; i < sideCount; i++)
+        {
+            float t = i / (float)(sideCount - 1);
+            float y = Mathf.Lerp(topRowY - 24f, slotTop + 96f, t);
+            float inward = Mathf.Lerp(12f, 62f, t);
+            TryAddPeg(positions, radii, new Vector2(mainLeft + inward, y), dividerX, pegRadius);
+            TryAddPeg(positions, radii, new Vector2(mainRight - inward, y), dividerX, pegRadius);
+        }
+
+        // 4. Lower staggered Galton grid (photo's main bounce field).
+        float gridTop = topRowY - 128f;
+        float gridBottom = slotTop + 118f;
+        int rows = 6;
         for (int row = 0; row < rows; row++)
         {
             bool offset = row % 2 == 1;
             int cols = offset ? 8 : 9;
-            float y = Mathf.Lerp(topRowY - pegSpacingY, bottomRowY + pegSpacingY, row / (float)(rows - 1));
-            float startX = offset ? mainLeft + pegSpacingX * 0.85f : mainLeft + 22f;
-            float endX = offset ? mainRight - 22f : mainRight - pegSpacingX * 0.35f;
-
+            float y = Mathf.Lerp(gridTop, gridBottom, row / (float)(rows - 1));
+            float inset = offset ? 56f : 32f;
             for (int col = 0; col < cols; col++)
             {
                 float t = cols == 1 ? 0.5f : col / (float)(cols - 1);
-                var pos = new Vector2(Mathf.Lerp(startX, endX, t), y);
-                if (InsideWowHole(pos))
+                var pos = new Vector2(Mathf.Lerp(mainLeft + inset, mainRight - inset, t), y);
+                if ((pos - character).sqrMagnitude < 58f * 58f)
                     continue;
-                TryAddPeg(positions, pos, dividerX);
+                TryAddPeg(positions, radii, pos, dividerX, pegRadius);
             }
         }
 
-        for (int i = 1; i < slotCount; i++)
-        {
-            float span = mainRight - mainLeft;
-            float x = mainLeft + span / slotCount * i;
-            TryAddPeg(positions, new Vector2(x, bottomRowY), dividerX);
-        }
+        // 5. Pegs around the bottom character (ears + crown).
+        TryAddPeg(positions, radii, character + new Vector2(-34f, 16f), dividerX, pegRadius);
+        TryAddPeg(positions, radii, character + new Vector2(34f, 16f), dividerX, pegRadius);
+        TryAddPeg(positions, radii, character + new Vector2(0f, 26f), dividerX, pegRadius);
+        TryAddPeg(positions, radii, character + new Vector2(-20f, -10f), dividerX, pegRadius);
+        TryAddPeg(positions, radii, character + new Vector2(20f, -10f), dividerX, pegRadius);
 
-        float[] sideYs = { 40f, 0f, -40f };
-        foreach (float y in sideYs)
-        {
-            TryAddPeg(positions, new Vector2(mainLeft + 18f, y), dividerX);
-            TryAddPeg(positions, new Vector2(mainRight - 18f, y), dividerX);
-        }
+        // 6. Feeder row just above the score slots.
+        AddPegRow(positions, radii, 9, slotTop + 28f, mainLeft + 26f, mainRight - 26f, dividerX, pegRadius);
 
         for (int i = 0; i < positions.Count; i++)
-            CreatePeg($"Peg_{i}", root, positions[i]);
+            CreatePeg($"Peg_{i}", root, positions[i], radii[i]);
     }
 
-    private bool InsideWowHole(Vector2 pos)
+    private void AddPegRow(
+        List<Vector2> positions, List<float> radii, int count, float y,
+        float startX, float endX, float dividerX, float radius)
     {
-        return (pos - wowHoleOffset).sqrMagnitude < wowHoleRadius * wowHoleRadius;
+        for (int i = 0; i < count; i++)
+        {
+            float t = count == 1 ? 0.5f : i / (float)(count - 1);
+            TryAddPeg(positions, radii, new Vector2(Mathf.Lerp(startX, endX, t), y), dividerX, radius);
+        }
     }
 
-    private void TryAddPeg(List<Vector2> positions, Vector2 pos, float dividerX)
+    private void TryAddPeg(List<Vector2> positions, List<float> radii, Vector2 pos, float dividerX, float radius)
     {
-        if (pos.x > dividerX - pegRadius * 2f)
+        if (pos.x > dividerX - radius * 2f)
             return;
 
+        float minDist = pegSpacingX * 0.55f;
+        float minDistSq = minDist * minDist;
         for (int i = 0; i < positions.Count; i++)
         {
-            if ((positions[i] - pos).sqrMagnitude < (pegSpacingX * 0.55f) * (pegSpacingX * 0.55f))
+            if ((positions[i] - pos).sqrMagnitude < minDistSq)
                 return;
         }
 
         positions.Add(pos);
+        radii.Add(radius);
     }
 
-    private void CreatePeg(string name, Transform parent, Vector2 position)
+    private void CreatePeg(string name, Transform parent, Vector2 position, float radius)
     {
         var go = new GameObject(name, typeof(RectTransform));
         go.layer = gameObject.layer;
@@ -193,18 +254,27 @@ public class MarblePlayfieldBuilder : MonoBehaviour
         rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
         rect.pivot = new Vector2(0.5f, 0.5f);
         rect.anchoredPosition = position;
-        rect.sizeDelta = Vector2.one * (pegRadius * 2f);
+        rect.sizeDelta = Vector2.one * (radius * 2f);
 
         if (showPegVisuals)
         {
             var image = go.AddComponent<Image>();
             image.raycastTarget = false;
-            image.color = new Color(0.85f, 0.85f, 0.9f, 0.9f);
-            image.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+            image.preserveAspect = true;
+            bool large = radius > pegRadius + 0.5f;
+            Sprite sprite = large ? largePegSprite : smallPegSprite;
+            image.sprite = sprite != null
+                ? sprite
+                : Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+            image.color = sprite != null
+                ? Color.white
+                : (large
+                    ? new Color(0.92f, 0.92f, 0.95f, 1f)
+                    : new Color(0.78f, 0.80f, 0.84f, 0.95f));
         }
 
         var collider = go.AddComponent<CircleCollider2D>();
-        collider.radius = pegRadius;
+        collider.radius = radius;
         collider.sharedMaterial = bounceMaterial;
     }
 
