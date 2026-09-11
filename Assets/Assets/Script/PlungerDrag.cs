@@ -122,6 +122,7 @@ public class PlungerDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndD
         float tilt = Mathf.Clamp(offsetX / LaneHalfWidth, -1f, 1f);
         Vector2 dir = Quaternion.Euler(0f, 0f, -tilt * maxTiltDegrees) * Vector2.up;
         playerBody.velocity = dir.normalized * force;
+        Debug.Log($"拉杆力度: {force:F1}");
         PlayHitSound();
     }
 

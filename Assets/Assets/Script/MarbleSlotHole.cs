@@ -19,11 +19,15 @@ public class MarbleSlotHole : MonoBehaviour
             controller = FindObjectOfType<MarbleGameController>();
     }
 
+    public static event System.Action<Collider2D, int> PlayerEntered;
+
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (controller == null || !other.CompareTag("Player"))
+        if (!other.CompareTag("Player"))
             return;
 
-        controller.OnBallEnterSlot(slotIndex);
+        PlayerEntered?.Invoke(other, slotIndex);
+        if (controller != null && controller.enabled)
+            controller.OnBallEnterSlot(slotIndex);
     }
 }
